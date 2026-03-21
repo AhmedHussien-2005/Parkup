@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>ParkUp — Sign In</title>
+  <link rel="stylesheet" href="../css/theme.css"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;display:flex;font-family:'Inter',sans-serif;background:#0A2540}
+
+    /* ── Left panel ── */
+    .left{display:none;flex-direction:column;justify-content:space-between;width:52%;padding:52px 48px;background:linear-gradient(145deg,#0D3460 0%,#0A2540 100%);position:relative;overflow:hidden}
+    @media(min-width:900px){.left{display:flex}}
+    .left::before{content:'';position:absolute;top:-120px;right:-120px;width:400px;height:400px;border-radius:50%;background:rgba(41,171,226,.06);pointer-events:none}
+    .left::after{content:'';position:absolute;bottom:-80px;left:-80px;width:280px;height:280px;border-radius:50%;background:rgba(41,171,226,.04);pointer-events:none}
+
+    /* ── Right panel ── */
+    .right{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 24px}
+    .card{background:white;border-radius:24px;padding:40px 36px;width:100%;max-width:420px;box-shadow:0 24px 80px rgba(0,0,0,.35)}
+
+    /* ── Divider ── */
+    .divider{display:flex;align-items:center;gap:12px;margin:20px 0}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:#E3F2FD}
+    .divider span{font-size:12px;color:#5B8DB8;font-weight:600;white-space:nowrap}
+
+    /* ── Auth buttons ── */
+    .auth-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:13px 20px;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;border:2px solid #E3F2FD;background:white;color:#0A2540;margin-bottom:10px}
+    .auth-btn:hover{border-color:#29ABE2;box-shadow:0 4px 16px rgba(41,171,226,.18);transform:translateY(-1px)}
+    .auth-btn:active{transform:translateY(0)}
+    .auth-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+    .auth-btn.loading{opacity:.7;cursor:not-allowed}
+
+    /* ── Email form ── */
+    .email-form{display:none;flex-direction:column;gap:12px;animation:slideDown .25s ease}
+    .email-form.show{display:flex}
+    @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+
+    .inp{width:100%;padding:12px 14px;border:1.5px solid #E3F2FD;border-radius:10px;font-size:14px;color:#0A2540;outline:none;transition:border-color .2s;font-family:'Inter',sans-serif}
+    .inp:focus{border-color:#29ABE2}
+    .inp::placeholder{color:#BBDEFB}
+
+    .btn-submit{width:100%;padding:13px;border-radius:12px;border:none;background:#29ABE2;color:white;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s}
+    .btn-submit:hover{background:#1A73CC}
+    .btn-submit:disabled{opacity:.6;cursor:not-allowed}
+
+    .toggle-mode{text-align:center;font-size:13px;color:#5B8DB8;margin-top:8px}
+    .toggle-mode a{color:#29ABE2;font-weight:700;cursor:pointer;text-decoration:none}
+    .toggle-mode a:hover{text-decoration:underline}
+
+    /* ── Phone form ── */
+    .phone-form{display:none;flex-direction:column;gap:12px;animation:slideDown .25s ease}
+    .phone-form.show{display:flex}
+    .phone-row{display:flex;gap:8px}
+    .country-code{width:90px;padding:12px 10px;border:1.5px solid #E3F2FD;border-radius:10px;font-size:14px;color:#0A2540;font-family:'Inter',sans-serif;outline:none}
+    .country-code:focus{border-color:#29ABE2}
+    .otp-inputs{display:flex;gap:8px;justify-content:center}
+    .otp-box{width:48px;height:52px;border:1.5px solid #E3F2FD;border-radius:10px;font-size:20px;font-weight:700;text-align:center;color:#0A2540;outline:none;transition:border-color .2s;font-family:'Inter',sans-serif}
+    .otp-box:focus{border-color:#29ABE2;background:#F0F8FF}
+
+    /* ── Error ── */
+    .err{background:#FFEBEE;color:#C62828;border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600;display:none;margin-bottom:4px;border-left:3px solid #E53935}
+    .success-msg{background:#E8F5E9;color:#2E7D32;border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600;display:none;margin-bottom:4px;border-left:3px solid #43A047}
+
+    /* ── Feature cards ── */
+    .feature{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+    .f-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(41,171,226,.12);flex-shrink:0}
+
+    /* ── Recaptcha ── */
+    #recaptcha-container{display:flex;justify-content:center;margin:4px 0}
+
+    /* ── Back btn ── */
+    .back-btn{display:none;align-items:center;gap:6px;color:#5B8DB8;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;background:none;border:none;font-family:'Inter',sans-serif;padding:0}
+    .back-btn.show{display:flex}
+    .back-btn:hover{color:#29ABE2}
+  </style>
+</head>
+<body>
+
+<!-- ══ LEFT PANEL ══════════════════════════════════ -->
+<div class="left">
+  <!-- Logo -->
+  <div style="display:flex;align-items:center;gap:10px">
+    <svg width="34" height="34" viewBox="0 0 200 200">
+      <rect x="30" y="20" width="22" height="110" fill="#29ABE2"/>
+      <rect x="30" y="20" width="80" height="22" fill="#29ABE2"/>
+      <rect x="30" y="68" width="80" height="22" fill="#29ABE2"/>
+      <rect x="88" y="20" width="22" height="70" rx="11" fill="#29ABE2"/>
+      <rect x="75" y="100" width="80" height="72" rx="8" fill="#29ABE2"/>
+      <rect x="93" y="116" width="44" height="42" rx="4" fill="#0A2540"/>
+    </svg>
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:3px;color:white">PARK<span style="color:#29ABE2">UP</span></span>
+  </div>
+
+  <!-- Headline -->
+  <div>
+    <h1 style="font-family:'Bebas Neue',sans-serif;font-size:56px;color:white;line-height:1.05;letter-spacing:1px;margin-bottom:16px">
+      FIND YOUR<br/>SPOT<br/><span style="color:#29ABE2">EASILY</span>
+    </h1>
+    <p style="font-size:15px;font-weight:500;color:#5B8DB8;line-height:1.7;max-width:340px">
+      Real-time parking availability, anywhere in the world.<br/>
+      Report spots, earn points, never circle again.
+    </p>
+
+    <!-- Features -->
+    <div style="margin-top:36px">
+      <div class="feature">
+        <div class="f-icon">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#29ABE2" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:white">Live Garage Availability</div>
+          <div style="font-size:12px;color:#5B8DB8;margin-top:2px">Real-time status from garage owners</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="f-icon">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#29ABE2" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:white">Community Reports</div>
+          <div style="font-size:12px;color:#5B8DB8;margin-top:2px">Drivers report empty street spots</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="f-icon">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#29ABE2" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:white">Earn Points & Rewards</div>
+          <div style="font-size:12px;color:#5B8DB8;margin-top:2px">Report spots, get parking discounts</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size:12px;color:#3a6a9a">© 2025 ParkUp · Find parking anywhere</p>
+</div>
+
+<!-- ══ RIGHT PANEL ═════════════════════════════════ -->
+<div class="right">
+  <div class="card">
+
+    <!-- Mobile logo -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;justify-content:center">
+      <svg width="26" height="26" viewBox="0 0 200 200">
+        <rect x="30" y="20" width="22" height="110" fill="#29ABE2"/>
+        <rect x="30" y="20" width="80" height="22" fill="#29ABE2"/>
+        <rect x="30" y="68" width="80" height="22" fill="#29ABE2"/>
+        <rect x="88" y="20" width="22" height="70" rx="11" fill="#29ABE2"/>
+        <rect x="75" y="100" width="80" height="72" rx="8" fill="#29ABE2"/>
+        <rect x="93" y="116" width="44" height="42" rx="4" fill="white"/>
+      </svg>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;color:#0A2540">PARK<span style="color:#29ABE2">UP</span></span>
+    </div>
+
+    <!-- Title -->
+    <div id="card-title">
+      <h2 style="font-size:26px;font-weight:900;color:#0A2540;margin-bottom:4px">Welcome 👋</h2>
+      <p style="font-size:13px;color:#5B8DB8;margin-bottom:24px">Sign in or create an account to continue</p>
+    </div>
+
+    <!-- Back button -->
+    <button class="back-btn" id="back-btn" onclick="goBack()">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="15,18 9,12 15,6"/></svg>
+      Back
+    </button>
+
+    <!-- Error / Success -->
+    <div class="err"     id="err"></div>
+    <div class="success-msg" id="success"></div>
+
+    <!-- ── MAIN OPTIONS ── -->
+    <div id="main-options">
+
+      <!-- Google -->
+      <button class="auth-btn" id="google-btn" onclick="signGoogle()">
+        <svg width="20" height="20" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <!-- Apple -->
+      <button class="auth-btn" id="apple-btn" onclick="signApple()" style="background:#000;color:white;border-color:#000">
+        <svg width="20" height="20" viewBox="0 0 814 1000" fill="white">
+          <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 684.3 0 582.5c0-207.8 134.4-317.7 266.5-317.7 79.5 0 145.6 52.8 195.7 52.8 48.3 0 124.1-55.8 211.5-55.8zm-144.8-99.3c33.7-39.5 57.8-94.5 57.8-149.5 0-7.7-.6-15.4-1.9-21.7-54.5 2-118.9 36.6-158.4 82.7-31.8 36.6-61.6 91.2-61.6 147.5 0 8.3 1.3 16.6 1.9 19.2 3.2.6 8.3 1.3 13.4 1.3 49 0 109.6-33.1 148.8-79.5z"/>
+        </svg>
+        Continue with Apple
+      </button>
+
+      <div class="divider"><span>or sign in with</span></div>
+
+      <!-- Phone -->
+      <button class="auth-btn" onclick="showPhone()" style="border-color:#E3F2FD">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#0A2540" stroke-width="2">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+        Continue with Phone
+      </button>
+
+      <!-- Email -->
+      <button class="auth-btn" onclick="showEmail()" style="border-color:#E3F2FD">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#0A2540" stroke-width="2">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        Continue with Email
+      </button>
+
+    </div><!-- /main-options -->
+
+    <!-- ── PHONE FORM ── -->
+    <div class="phone-form" id="phone-form">
+      <div id="phone-step1">
+        <p style="font-size:13px;font-weight:700;color:#0A2540;margin-bottom:10px">Enter your phone number</p>
+        <div class="phone-row">
+          <select class="country-code" id="country-code">
+            <option value="+20">🇪🇬 +20</option>
+            <option value="+1">🇺🇸 +1</option>
+            <option value="+44">🇬🇧 +44</option>
+            <option value="+966">🇸🇦 +966</option>
+            <option value="+971">🇦🇪 +971</option>
+            <option value="+974">🇶🇦 +974</option>
+            <option value="+965">🇰🇼 +965</option>
+          </select>
+          <input class="inp" type="tel" id="phone-input" placeholder="1012345678" style="flex:1" maxlength="11"/>
+        </div>
+        <div id="recaptcha-container"></div>
+        <button class="btn-submit" id="send-otp-btn" onclick="sendOTP()">Send OTP</button>
+      </div>
+
+      <div id="phone-step2" style="display:none">
+        <p style="font-size:13px;font-weight:700;color:#0A2540;margin-bottom:4px">Enter the 6-digit code</p>
+        <p style="font-size:12px;color:#5B8DB8;margin-bottom:14px">Sent to <span id="phone-display"></span></p>
+        <div class="otp-inputs">
+          <input class="otp-box" type="tel" maxlength="1" id="otp0" oninput="otpNext(this,0)"/>
+          <input class="otp-box" type="tel" maxlength="1" id="otp1" oninput="otpNext(this,1)"/>
+          <input class="otp-box" type="tel" maxlength="1" id="otp2" oninput="otpNext(this,2)"/>
+          <input class="otp-box" type="tel" maxlength="1" id="otp3" oninput="otpNext(this,3)"/>
+          <input class="otp-box" type="tel" maxlength="1" id="otp4" oninput="otpNext(this,4)"/>
+          <input class="otp-box" type="tel" maxlength="1" id="otp5" oninput="otpNext(this,5)"/>
+        </div>
+        <button class="btn-submit" style="margin-top:12px" onclick="verifyOTP()">Verify</button>
+        <div style="text-align:center;margin-top:10px">
+          <span style="font-size:12px;color:#5B8DB8">Didn't receive it? </span>
+          <a onclick="resendOTP()" style="font-size:12px;color:#29ABE2;font-weight:700;cursor:pointer">Resend</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EMAIL FORM ── -->
+    <div class="email-form" id="email-form">
+      <div id="email-mode-signin">
+        <input class="inp" type="email"    id="email-inp"  placeholder="Email address"/>
+        <input class="inp" type="password" id="pass-inp"   placeholder="Password"/>
+        <button class="btn-submit" onclick="signEmail()">Sign In</button>
+        <div class="toggle-mode">
+          Don't have an account? <a onclick="switchEmailMode('signup')">Sign up</a>
+          &nbsp;·&nbsp; <a onclick="forgotPass()">Forgot password?</a>
+        </div>
+      </div>
+      <div id="email-mode-signup" style="display:none">
+        <input class="inp" type="text"     id="name-inp"   placeholder="Full name"/>
+        <input class="inp" type="email"    id="email-inp2" placeholder="Email address"/>
+        <input class="inp" type="password" id="pass-inp2"  placeholder="Password (min 6 chars)"/>
+        <button class="btn-submit" onclick="signUpEmail()">Create Account</button>
+        <div class="toggle-mode">Already have an account? <a onclick="switchEmailMode('signin')">Sign in</a></div>
+      </div>
+    </div>
+
+    <p style="text-align:center;font-size:11px;color:#BBDEFB;margin-top:20px">
+      By continuing you agree to our <a href="#" style="color:#29ABE2">Terms</a> & <a href="#" style="color:#29ABE2">Privacy Policy</a>
+    </p>
+
+  </div><!-- /card -->
+</div><!-- /right -->
+
+<script type="module">
+import { app }           from '../js/services/app.js';
+import { onAuth }        from '../js/services/auth.js';
+import {
+  getAuth,
+  signInWithPopup, GoogleAuthProvider,
+  OAuthProvider,
+  signInWithPhoneNumber, RecaptchaVerifier,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  sendPasswordResetEmail
+} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// Already logged in?
+onAuth(user => { if (user) window.location.href = 'app.html'; });
+
+// ── Helpers ─────────────────────────
+function showErr(msg)  { const e=document.getElementById('err');     e.textContent=msg; e.style.display='block'; document.getElementById('success').style.display='none'; }
+function showOk(msg)   { const e=document.getElementById('success'); e.textContent=msg; e.style.display='block'; document.getElementById('err').style.display='none'; }
+function clearMsgs()   { document.getElementById('err').style.display='none'; document.getElementById('success').style.display='none'; }
+function setLoading(btnId, loading, text='') {
+  const b = document.getElementById(btnId);
+  if (!b) return;
+  b.disabled = loading;
+  if (text) b.textContent = loading ? text : b.dataset.orig || b.textContent;
+}
+
+async function ensureUserDoc(user) {
+  const ref = doc(db, 'users', user.uid);
+  try {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        name:         user.displayName || user.email?.split('@')[0] || 'ParkUp User',
+        email:        user.email        || '',
+        photoUrl:     user.photoURL     || null,
+        role:         'user',
+        points:       0,
+        reportsCount: 0,
+        weeklyRank:   0,
+        level:        'Bronze Spotter',
+        createdAt:    serverTimestamp(),
+      });
+    } else {
+      await updateDoc(ref, {
+        photoUrl: user.photoURL || null,
+        lastSeen: serverTimestamp(),
+      });
+    }
+  } catch(e) { console.warn('User doc error:', e.message); }
+}
+
+// ── Navigation ───────────────────────
+window.showPhone = () => {
+  document.getElementById('main-options').style.display = 'none';
+  document.getElementById('phone-form').classList.add('show');
+  document.getElementById('back-btn').classList.add('show');
+  document.getElementById('card-title').innerHTML = `<h2 style="font-size:22px;font-weight:900;color:#0A2540;margin-bottom:4px">Phone Sign In</h2><p style="font-size:13px;color:#5B8DB8;margin-bottom:20px">We'll send you a verification code</p>`;
+  clearMsgs();
+  initRecaptcha();
+};
+
+window.showEmail = () => {
+  document.getElementById('main-options').style.display = 'none';
+  document.getElementById('email-form').classList.add('show');
+  document.getElementById('back-btn').classList.add('show');
+  document.getElementById('card-title').innerHTML = `<h2 style="font-size:22px;font-weight:900;color:#0A2540;margin-bottom:4px">Email Sign In</h2><p style="font-size:13px;color:#5B8DB8;margin-bottom:20px">Enter your email and password</p>`;
+  clearMsgs();
+};
+
+window.goBack = () => {
+  document.getElementById('main-options').style.display = 'block';
+  document.getElementById('phone-form').classList.remove('show');
+  document.getElementById('email-form').classList.remove('show');
+  document.getElementById('back-btn').classList.remove('show');
+  document.getElementById('card-title').innerHTML = `<h2 style="font-size:26px;font-weight:900;color:#0A2540;margin-bottom:4px">Welcome 👋</h2><p style="font-size:13px;color:#5B8DB8;margin-bottom:24px">Sign in or create an account to continue</p>`;
+  document.getElementById('phone-step1').style.display = 'block';
+  document.getElementById('phone-step2').style.display = 'none';
+  clearMsgs();
+};
+
+window.switchEmailMode = (mode) => {
+  document.getElementById('email-mode-signin').style.display = mode==='signin' ? 'block' : 'none';
+  document.getElementById('email-mode-signup').style.display = mode==='signup' ? 'block' : 'none';
+  clearMsgs();
+};
+
+// ── Google ───────────────────────────
+window.signGoogle = async () => {
+  const btn = document.getElementById('google-btn');
+  btn.disabled = true; btn.textContent = 'Signing in...'; clearMsgs();
+  try {
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
+    await ensureUserDoc(result.user);
+    window.location.href = 'app.html';
+  } catch(e) {
+    showErr(e.code === 'auth/popup-closed-by-user' ? 'Sign-in cancelled.' : e.message);
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google`;
+  }
+};
+
+// ── Apple ────────────────────────────
+window.signApple = async () => {
+  const btn = document.getElementById('apple-btn');
+  btn.disabled = true; btn.textContent = 'Signing in...'; clearMsgs();
+  try {
+    const provider = new OAuthProvider('apple.com');
+    provider.addScope('email'); provider.addScope('name');
+    const result = await signInWithPopup(auth, provider);
+    await ensureUserDoc(result.user);
+    window.location.href = 'app.html';
+  } catch(e) {
+    showErr(e.code === 'auth/popup-closed-by-user' ? 'Sign-in cancelled.' :
+            e.code === 'auth/operation-not-supported-in-this-environment' ? 'Apple Sign-In requires HTTPS.' : e.message);
+    btn.disabled = false; btn.textContent = 'Continue with Apple';
+  }
+};
+
+// ── Phone ────────────────────────────
+let recaptchaVerifier, confirmResult;
+
+function initRecaptcha() {
+  if (window._recaptchaReady) return;
+  window._recaptchaReady = true;
+  try {
+    recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'normal',
+      callback: () => { document.getElementById('send-otp-btn').disabled = false; }
+    });
+    recaptchaVerifier.render();
+  } catch(e) { console.warn('reCAPTCHA:', e); }
+}
+
+window.sendOTP = async () => {
+  clearMsgs();
+  const code  = document.getElementById('country-code').value;
+  const phone = document.getElementById('phone-input').value.trim();
+  if (!phone) { showErr('Enter your phone number'); return; }
+  const full = code + phone;
+  const btn  = document.getElementById('send-otp-btn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try {
+    confirmResult = await signInWithPhoneNumber(auth, full, recaptchaVerifier);
+    document.getElementById('phone-step1').style.display = 'none';
+    document.getElementById('phone-step2').style.display = 'block';
+    document.getElementById('phone-display').textContent = full;
+    document.getElementById('otp0').focus();
+    showOk('Code sent! Check your phone.');
+  } catch(e) {
+    showErr(e.message);
+    btn.disabled = false; btn.textContent = 'Send OTP';
+  }
+};
+
+window.otpNext = (el, idx) => {
+  el.value = el.value.replace(/\D/g,'');
+  if (el.value && idx < 5) document.getElementById(`otp${idx+1}`).focus();
+  if (idx === 5) verifyOTP();
+};
+
+window.verifyOTP = async () => {
+  clearMsgs();
+  const code = [0,1,2,3,4,5].map(i => document.getElementById(`otp${i}`).value).join('');
+  if (code.length < 6) { showErr('Enter all 6 digits'); return; }
+  try {
+    const result = await confirmResult.confirm(code);
+    await ensureUserDoc(result.user);
+    window.location.href = 'app.html';
+  } catch(e) { showErr('Invalid code. Try again.'); }
+};
+
+window.resendOTP = () => {
+  window._recaptchaReady = false;
+  document.getElementById('phone-step1').style.display = 'block';
+  document.getElementById('phone-step2').style.display = 'none';
+  document.getElementById('recaptcha-container').innerHTML = '';
+  clearMsgs();
+  initRecaptcha();
+};
+
+// ── Email ────────────────────────────
+window.signEmail = async () => {
+  clearMsgs();
+  const email = document.getElementById('email-inp').value.trim();
+  const pass  = document.getElementById('pass-inp').value;
+  if (!email || !pass) { showErr('Enter email and password'); return; }
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, pass);
+    await ensureUserDoc(result.user);
+    window.location.href = 'app.html';
+  } catch(e) {
+    showErr(e.code === 'auth/user-not-found' ? 'No account found. Sign up instead.' :
+            e.code === 'auth/wrong-password'  ? 'Wrong password.' : e.message);
+  }
+};
+
+window.signUpEmail = async () => {
+  clearMsgs();
+  const name  = document.getElementById('name-inp').value.trim();
+  const email = document.getElementById('email-inp2').value.trim();
+  const pass  = document.getElementById('pass-inp2').value;
+  if (!name || !email || !pass) { showErr('Fill in all fields'); return; }
+  if (pass.length < 6)          { showErr('Password must be at least 6 characters'); return; }
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(result.user, { displayName: name });
+    await ensureUserDoc({ ...result.user, displayName: name });
+    window.location.href = 'app.html';
+  } catch(e) {
+    showErr(e.code === 'auth/email-already-in-use' ? 'Email already registered. Sign in instead.' : e.message);
+  }
+};
+
+window.forgotPass = async () => {
+  clearMsgs();
+  const email = document.getElementById('email-inp').value.trim();
+  if (!email) { showErr('Enter your email first'); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showOk('Password reset email sent! Check your inbox.');
+  } catch(e) { showErr(e.message); }
+};
+</script>
+
+</body>
+</html>
