@@ -92,6 +92,10 @@ export function renderMap(container) {
             <div style="width:10px;height:10px;border-radius:50%;background:#29ABE2;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.2);flex-shrink:0"></div>
             <span style="font-size:11px;font-weight:600;color:#0A2540">Street Spot</span>
           </div>
+          <div style="border-top:1px solid #E3F2FD;margin-top:6px;padding-top:6px;display:flex;align-items:center;gap:8px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#FF6B00;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.2);flex-shrink:0"></div>
+            <span style="font-size:11px;font-weight:600;color:#0A2540">⏳ Waiting to hand off</span>
+          </div>
         </div>
 
         <!-- Garage Detail Panel -->
@@ -418,8 +422,15 @@ function _renderSpots(spots) {
 
     const ago      = timeAgo(sp.reportedAt);
     const isFresh  = sp.isFresh;
-    const color    = isFresh ? '#29ABE2' : '#FB8C00';
-    const ringColor= isFresh ? 'rgba(41,171,226,0.35)' : 'rgba(251,140,0,0.35)';
+    const isWait   = sp.isWaiting === true;
+
+    // Color logic:
+    // WAIT (orange)  → user is physically waiting to hand off
+    // Fresh (blue)   → reported within 1 min (regular)
+    // Older (amber)  → older regular spot
+    const color     = isWait ? '#FF6B00' : (isFresh ? '#29ABE2' : '#FB8C00');
+    const ringColor = isWait ? 'rgba(255,107,0,0.35)' : (isFresh ? 'rgba(41,171,226,0.35)' : 'rgba(251,140,0,0.35)');
+    const dotSize   = isWait ? 26 : 20;   // WAIT dot slightly bigger
 
     // Compute distance from user
     let distLabel = '';
@@ -436,14 +447,15 @@ function _renderSpots(spots) {
       className: '',
       html: `
         <div style="position:relative;display:flex;flex-direction:column;align-items:center">
-          <!-- Time badge above -->
+          <!-- Time badge above (WAIT shows hourglass label) -->
           <div style="background:#0A2540;color:${color};font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;white-space:nowrap;margin-bottom:4px;font-family:'Inter',sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.3)">
-            ${ago}
+            ${isWait ? '⏳ Waiting' : ago}
           </div>
-          <!-- Pulsing dot -->
-          <div class="spot-pin" style="width:20px;height:20px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;position:relative">
+          <!-- Pulsing dot — bigger for WAIT -->
+          <div class="spot-pin" style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center">
+            ${isWait ? '<span style="font-size:12px;line-height:1">🚗</span>' : ''}
             <!-- Pulse ring -->
-            <div style="position:absolute;inset:-5px;border-radius:50%;background:${ringColor};animation:spotPulse 2s ease-out infinite"></div>
+            <div style="position:absolute;inset:-5px;border-radius:50%;background:${ringColor};animation:spotPulse ${isWait ? '1.2s' : '2s'} ease-out infinite"></div>
           </div>
           <!-- Distance badge below -->
           ${distLabel ? `
@@ -470,8 +482,10 @@ function _renderSpots(spots) {
     hdr.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
     hdr.innerHTML = `
       <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
-      <div style="font-weight:900;font-size:14px;color:#0A2540">Street Spot</div>
-      <span style="margin-left:auto;font-size:10px;font-weight:700;color:${color};background:${color}22;padding:2px 7px;border-radius:8px">${isFresh ? 'Fresh 🟢' : 'Older 🟠'}</span>
+      <div style="font-weight:900;font-size:14px;color:#0A2540">${isWait ? '⏳ Handing off spot' : 'Street Spot'}</div>
+      <span style="margin-left:auto;font-size:10px;font-weight:700;color:${color};background:${color}22;padding:2px 7px;border-radius:8px">
+        ${isWait ? 'Waiting' : (isFresh ? 'Fresh 🟢' : 'Older 🟠')}
+      </span>
     `;
     wrap.appendChild(hdr);
 
@@ -509,29 +523,11 @@ function _renderSpots(spots) {
     const btns = document.createElement('div');
     btns.style.cssText = 'display:flex;gap:6px;margin-top:4px';
 
-    // Navigate button
-    const navBtn = document.createElement('a');
-    navBtn.href   = 'https://www.google.com/maps/dir/?api=1&destination=' + sp.lat + ',' + sp.lng;
-    navBtn.target = '_blank';
-    navBtn.style.cssText = 'flex:1;display:block;text-align:center;padding:8px;background:#29ABE2;color:white;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none';
-    navBtn.textContent = 'Navigate';
-    navBtn.addEventListener('click', async () => {
-      // Auto-remove spot when someone navigates to it
-      try {
-        const { deleteSpot } = await import('../services/db.js');
-        await deleteSpot(sp.id, null); // null = no points deduction, just remove
-        // marker will disappear automatically via real-time listener
-      } catch(e) {
-        console.warn('[ParkUp] Auto-remove on navigate failed:', e.message);
-      }
-    });
-    btns.appendChild(navBtn);
-
-    // Delete button — only for owner
     if (isOwner) {
+      // Owner sees Remove only — they already know where they are
       const delBtn = document.createElement('button');
       delBtn.textContent = 'Remove';
-      delBtn.style.cssText = 'padding:8px 12px;background:#FFEBEE;color:#C62828;border:1.5px solid #FFCDD2;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;white-space:nowrap;transition:background .2s';
+      delBtn.style.cssText = 'flex:1;padding:8px;background:#FFEBEE;color:#C62828;border:1.5px solid #FFCDD2;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;transition:background .2s';
       delBtn.onmouseover = () => delBtn.style.background = '#FFCDD2';
       delBtn.onmouseout  = () => delBtn.style.background = '#FFEBEE';
       delBtn.addEventListener('click', async () => {
@@ -540,7 +536,7 @@ function _renderSpots(spots) {
         delBtn.disabled = true;
         try {
           const { deleteSpot } = await import('../services/db.js');
-          await deleteSpot(sp.id, user?.uid);
+          await deleteSpot(sp.id);
           marker.remove();
           toast('Spot removed ✓');
         } catch(e) {
@@ -550,6 +546,28 @@ function _renderSpots(spots) {
         }
       });
       btns.appendChild(delBtn);
+    } else {
+      // Other users see Navigate only
+      const navBtn = document.createElement('button');
+      navBtn.textContent = 'Navigate';
+      navBtn.style.cssText = 'flex:1;padding:8px;background:#29ABE2;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif';
+      navBtn.addEventListener('click', async () => {
+        navBtn.textContent = 'Opening...';
+        navBtn.disabled = true;
+        console.log('[ParkUp] Navigate clicked, sp.id:', sp.id);
+        try {
+          const { awardSpotNavigation, deleteSpot } = await import('../services/db.js');
+          console.log('[ParkUp] imported ok, calling awardSpotNavigation...');
+          await awardSpotNavigation(sp.id);
+          console.log('[ParkUp] awardSpotNavigation done, calling deleteSpot...');
+          await deleteSpot(sp.id);
+          console.log('[ParkUp] deleteSpot done');
+        } catch(e) {
+          console.error('[ParkUp] Navigate flow FAILED:', e.message, e);
+        }
+        window.open('https://www.google.com/maps/dir/?api=1&destination=' + sp.lat + ',' + sp.lng, '_blank');
+      });
+      btns.appendChild(navBtn);
     }
 
     wrap.appendChild(btns);
@@ -909,6 +927,8 @@ window.openReport = () => {
 };
 
 function _showReportModal(user) {
+  let _isWaiting = false;
+
   showModal({
     title: 'Report Empty Spot',
     body: `
@@ -926,23 +946,33 @@ function _showReportModal(user) {
             </div>
           </div>
         </div>
-        <!-- Photo -->
-        <div>
-          <label style="display:block;font-size:11px;font-weight:700;color:#5B8DB8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">
-            Add a Photo <span style="font-weight:700;color:#29ABE2">+5 pts</span>
-          </label>
-          <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:10px;border:2px dashed #BBDEFB;cursor:pointer;background:#F0F8FF;transition:border-color .2s"
-            onmouseover="this.style.borderColor='#29ABE2'" onmouseout="this.style.borderColor='#BBDEFB'">
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#29ABE2" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
-            <span style="font-size:13px;font-weight:600;color:#5B8DB8">Upload or take a photo</span>
-            <input type="file" id="photo-file" accept="image/*" style="display:none" onchange="
-              document.getElementById('pname').textContent='✓ '+this.files[0]?.name;
-              document.getElementById('pts-total').textContent='+15';
-              document.getElementById('pts-note').textContent='10 pts for report + 5 pts for photo';
-            "/>
-          </label>
-          <div id="pname" style="font-size:11px;color:#29ABE2;margin-top:4px"></div>
+
+        <!-- WAIT toggle -->
+        <div id="wait-card" style="border:2px solid #E3F2FD;border-radius:12px;padding:14px;cursor:pointer;transition:all .2s;background:white" onclick="window._toggleWait()">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div id="wait-icon-wrap" style="width:40px;height:40px;border-radius:12px;background:#F0F8FF;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#5B8DB8" stroke-width="2" id="wait-icon">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+                </svg>
+              </div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:#0A2540">I'm waiting here</div>
+                <div style="font-size:11px;color:#5B8DB8;margin-top:2px">Hand off your spot to the next driver · max 10 min</div>
+              </div>
+            </div>
+            <!-- toggle knob -->
+            <div id="wait-toggle-track" style="width:44px;height:24px;border-radius:12px;background:#CBD5E1;flex-shrink:0;position:relative;transition:background .3s">
+              <div id="wait-toggle-knob" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:transform .3s;box-shadow:0 1px 4px rgba(0,0,0,.2)"></div>
+            </div>
+          </div>
+          <!-- Bonus pts badge - hidden until active -->
+          <div id="wait-bonus" style="display:none;margin-top:10px;background:#FFF3E0;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#E65100" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+            <span style="font-size:12px;font-weight:700;color:#E65100">+10 bonus pts for waiting! Your spot shows in orange on the map.</span>
+          </div>
         </div>
+
         <!-- Notes -->
         <div>
           <label style="display:block;font-size:11px;font-weight:700;color:#5B8DB8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">
@@ -952,11 +982,12 @@ function _showReportModal(user) {
             placeholder="e.g. Space for 2 cars, near the corner..."
             onfocus="this.style.borderColor='#29ABE2'" onblur="this.style.borderColor='#E3F2FD'"></textarea>
         </div>
+
         <!-- Points -->
         <div style="background:#0A2540;border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
           <div>
             <div style="font-size:12px;color:rgba(255,255,255,.6)">You'll earn</div>
-            <div id="pts-note" style="font-size:10px;color:#29ABE2;margin-top:2px">10 pts for report · add photo for +5 more</div>
+            <div id="pts-note" style="font-size:10px;color:#29ABE2;margin-top:2px">10 pts for every report</div>
           </div>
           <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:white"><span id="pts-total" style="color:#29ABE2">+10</span> pts</div>
         </div>
@@ -964,30 +995,73 @@ function _showReportModal(user) {
     `,
     confirmLabel: '✓ Submit Report',
     onConfirm: async () => {
-      const notes = document.getElementById('snotes')?.value || '';
-      const photo = document.getElementById('photo-file')?.files[0];
+      const notes    = document.getElementById('snotes')?.value || '';
+      const waiting  = _isWaiting;
+      const basePts  = waiting ? 20 : 10;
+
       try {
         await addStreetSpot({
           uid: user.uid, reporterName: user.displayName || 'User',
           lat: _currentLat || 0, lng: _currentLng || 0,
-          address: _currentAddress, type: 'street', notes, photoFile: photo,
+          address: _currentAddress, type: 'street', notes,
+          isWaiting: waiting,
         });
-        const pts = photo ? 15 : 10;
-        toast(`Spot reported! +${pts} pts earned.`);
+        toast(waiting
+          ? `Spot reported! You're waiting 🕐 +${basePts} pts earned.`
+          : `Spot reported! ✓ You'll earn +10 pts when someone navigates to it.`
+        );
         // Drop marker on map immediately
         if (_map && _spotLayer && _currentLat) {
+          const waitColor = '#FF6B00';
+          const regularColor = '#29ABE2';
+          const col = waiting ? waitColor : regularColor;
           const icon = L.divIcon({
             className:'',
-            html:`<div style="width:14px;height:14px;border-radius:50%;background:#29ABE2;border:2.5px solid #0A2540;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>`,
+            html:`<div style="width:14px;height:14px;border-radius:50%;background:${col};border:2.5px solid #0A2540;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>`,
             iconSize:[14,14], iconAnchor:[7,7],
           });
           L.marker([_currentLat, _currentLng], { icon })
-            .bindPopup('<b>Just reported!</b><br>'+_currentAddress)
+            .bindPopup(`<b>${waiting ? '⏳ Waiting to hand off!' : 'Just reported!'}</b><br>` + _currentAddress)
             .addTo(_spotLayer);
         }
       } catch(e) { toast('Error: ' + e.message, 'error'); }
     }
   });
+
+  // WAIT toggle handler
+  window._toggleWait = () => {
+    _isWaiting = !_isWaiting;
+    const card    = document.getElementById('wait-card');
+    const track   = document.getElementById('wait-toggle-track');
+    const knob    = document.getElementById('wait-toggle-knob');
+    const iconWrap= document.getElementById('wait-icon-wrap');
+    const icon    = document.getElementById('wait-icon');
+    const bonus   = document.getElementById('wait-bonus');
+    const ptsNote = document.getElementById('pts-note');
+    const ptsTotal= document.getElementById('pts-total');
+
+    if (_isWaiting) {
+      card.style.borderColor    = '#FF6B00';
+      card.style.background     = '#FFF8F0';
+      track.style.background    = '#FF6B00';
+      knob.style.transform      = 'translateX(20px)';
+      iconWrap.style.background = '#FFF3E0';
+      icon.style.stroke         = '#FF6B00';
+      bonus.style.display       = 'flex';
+      ptsNote.textContent       = '20 pts for waiting to hand off';
+      ptsTotal.textContent      = '+20';
+    } else {
+      card.style.borderColor    = '#E3F2FD';
+      card.style.background     = 'white';
+      track.style.background    = '#CBD5E1';
+      knob.style.transform      = 'translateX(0)';
+      iconWrap.style.background = '#F0F8FF';
+      icon.style.stroke         = '#5B8DB8';
+      bonus.style.display       = 'none';
+      ptsNote.textContent       = '10 pts for every report';
+      ptsTotal.textContent      = '+10';
+    }
+  };
 
   window.selType = btn => {
     document.querySelectorAll('.type-opt').forEach(b => {

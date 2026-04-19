@@ -239,21 +239,26 @@ function _renderSpots() {
 
   body.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;max-width:720px;margin:0 auto">
     ${_spots.map(sp => {
-      const fresh = sp.isFresh;
-      const color = fresh ? '#29ABE2' : '#FB8C00';
+      const fresh  = sp.isFresh;
+      const isWait = sp.isWaiting === true;
+      // WAIT = orange, Fresh = blue, Older = amber
+      const color  = isWait ? '#FF6B00' : (fresh ? '#29ABE2' : '#FB8C00');
+      const border = isWait ? '#FFD0B3' : (fresh ? '#BBDEFB' : '#FFE0B2');
+      const bgCard = isWait ? '#FFF8F3' : 'white';
 
       return `
-        <div style="background:white;border-radius:14px;padding:16px 18px;border:1px solid ${fresh ? '#BBDEFB' : '#FFE0B2'};box-shadow:0 2px 8px rgba(10,37,64,.05);display:flex;align-items:center;gap:14px;animation:fadeIn .3s ease">
-          <!-- Icon -->
+        <div style="background:${bgCard};border-radius:14px;padding:16px 18px;border:1px solid ${border};box-shadow:0 2px 8px rgba(10,37,64,.05);display:flex;align-items:center;gap:14px;animation:fadeIn .3s ease">
+          <!-- Icon — clock icon for WAIT -->
           <div style="width:42px;height:42px;border-radius:12px;background:${color}18;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="${color}" stroke-width="2">
-              <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/>
-              <circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>
-            </svg>
+            ${isWait
+              ? `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="${color}" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>`
+              : `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="${color}" stroke-width="2"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`
+            }
           </div>
 
           <!-- Info -->
           <div style="flex:1;min-width:0">
+            ${isWait ? `<div style="font-size:10px;font-weight:700;color:${color};letter-spacing:.5px;margin-bottom:2px">⏳ WAITING TO HAND OFF</div>` : ''}
             <div style="font-size:13px;font-weight:800;color:#0A2540;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sp.address || 'Unknown location'}</div>
             <div style="font-size:11px;color:#5B8DB8;margin-top:3px">
               By <b style="color:#0A2540">${sp.reporterName || 'Anonymous'}</b>
@@ -266,13 +271,13 @@ function _renderSpots() {
           <!-- Right side -->
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
             <span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:7px;background:${color}18;color:${color}">
-              ${sp.type || 'street'}
+              ${isWait ? 'waiting' : (sp.type || 'street')}
             </span>
             <a href="https://www.google.com/maps/dir/?api=1&destination=${sp.lat},${sp.lng}" target="_blank"
-              style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#29ABE2;text-decoration:none"
-              onmouseover="this.style.color='#1A73CC'" onmouseout="this.style.color='#29ABE2'">
+              style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:${color};text-decoration:none"
+              onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
               <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="3,11 22,2 13,21 11,13 3,11"/></svg>
-              Navigate
+              ${isWait ? 'Go get it!' : 'Navigate'}
             </a>
           </div>
         </div>

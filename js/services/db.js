@@ -88,13 +88,27 @@ export function onFreshSpots(cb) {
 
   function _subscribe() {
     if (unsub) unsub();
-    const cutoff = Timestamp.fromDate(new Date(Date.now() - 1 * 60 * 1000));
+    // WAIT spots live for 10 min, regular spots live for 1 min
+    // Use the wider 10-min window so both types appear; filter freshness per-doc in _docToSpot
+    const cutoff = Timestamp.fromDate(new Date(Date.now() - 10 * 60 * 1000));
     const q = query(
       collection(db, 'street_spots'),
       where('reportedAt', '>', cutoff),
       orderBy('reportedAt', 'desc')
     );
-    unsub = onSnapshot(q, snap => cb(snap.docs.map(_docToSpot)));
+    unsub = onSnapshot(q, snap => {
+      const now = Date.now();
+      const spots = snap.docs
+        .map(_docToSpot)
+        .filter(sp => {
+          if (!sp.reportedAt) return false;
+          const date = sp.reportedAt?.toDate ? sp.reportedAt.toDate() : new Date(sp.reportedAt);
+          const ageMs = now - date.getTime();
+          // WAIT spots: 10 min max; regular spots: 1 min max
+          return sp.isWaiting ? ageMs < 10 * 60 * 1000 : ageMs < 1 * 60 * 1000;
+        });
+      cb(spots);
+    });
   }
 
   _subscribe();
@@ -108,7 +122,7 @@ export function onFreshSpots(cb) {
   };
 }
 
-export async function addStreetSpot({ uid, reporterName, lat, lng, address, type, photoFile, notes }) {
+export async function addStreetSpot({ uid, reporterName, lat, lng, address, type, photoFile, notes, isWaiting = false }) {
   let photoUrl  = null;
   let photoSaved = false;
 
@@ -130,41 +144,56 @@ export async function addStreetSpot({ uid, reporterName, lat, lng, address, type
     photoUrl, notes: notes || null,
     reportedAt: serverTimestamp(),
     confirmed: false, confirmCount: 0,
+    isWaiting: isWaiting,
+    waitExpiresAt: isWaiting
+      ? Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000))
+      : null,
   });
 
-  // Award points — 15 if photo uploaded successfully, 10 if not
-  const earnedPts  = photoSaved ? 15 : 10;
-  const earnedDesc = photoSaved ? 'Reported empty spot with photo' : 'Reported empty spot';
-  _awardPoints(uid, earnedPts, 'report', earnedDesc).catch(e => console.warn('Points:', e.message));
+  if (isWaiting) {
+    // WAIT spots → award points immediately (user is physically there)
+    const pts  = photoSaved ? 25 : 20;
+    const desc = photoSaved ? 'Waiting to hand off spot (with photo)' : 'Waiting to hand off spot';
+    _awardPoints(uid, pts, 'report', desc).catch(e => console.warn('Points:', e.message));
+  }
+  // Regular spots → points awarded later when another user clicks Navigate (see awardSpotNavigation)
+
   return docRef.id;
 }
 
-export async function deleteSpot(spotId, uid) {
-  // Deduct 10 points when user deletes their own spot
-  if (uid) {
-    try {
-      const userRef  = doc(db, 'users', uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        const currentPts = userSnap.data().points ?? 0;
-        await updateDoc(userRef, {
-          weeklyPoints: increment(-10),   // deduct from weekly only
-          reportsCount: increment(-1),
-        });
-        // Log to history
-        await addDoc(collection(db, 'points_history'), {
-          uid,
-          action:      'deleted',
-          points:      -10,
-          description: 'Spot removed',
-          createdAt:   serverTimestamp(),
-        });
-      }
-    } catch(e) {
-      console.warn('Points deduction failed:', e.message);
-    }
-  }
+export async function deleteSpot(spotId) {
   return deleteDoc(doc(db, 'street_spots', spotId));
+}
+
+// Called explicitly when a user navigates to a spot — awards the reporter their points
+export async function awardSpotNavigation(spotId) {
+  console.log('[ParkUp] awardSpotNavigation called, spotId:', spotId);
+  try {
+    const spotRef  = doc(db, 'street_spots', spotId);
+    const spotSnap = await getDoc(spotRef);
+    console.log('[ParkUp] spot exists?', spotSnap.exists());
+    if (!spotSnap.exists()) return;
+
+    const spotData    = spotSnap.data();
+    const reporterUid = spotData.reportedBy;
+    console.log('[ParkUp] reporterUid:', reporterUid, '| isWaiting:', spotData.isWaiting);
+    if (!reporterUid) return;
+
+    if (spotData.isWaiting === true) {
+      console.log('[ParkUp] WAIT spot — skipping, already awarded');
+      return;
+    }
+
+    const hasPhoto = !!spotData.photoUrl;
+    const pts      = hasPhoto ? 15 : 10;
+    const desc     = hasPhoto ? 'Someone navigated to your spot (with photo)' : 'Someone navigated to your spot';
+    console.log('[ParkUp] awarding', pts, 'pts to', reporterUid);
+
+    await _awardPoints(reporterUid, pts, 'report', desc);
+    console.log('[ParkUp] _awardPoints done ✓');
+  } catch(e) {
+    console.error('[ParkUp] awardSpotNavigation FAILED:', e.message, e);
+  }
 }
 
 export async function confirmSpot(spotId, uid) {
