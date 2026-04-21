@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="ParkUp"/>
+  <meta name="theme-color" content="#0A2540"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>ParkUp</title>
   <link rel="stylesheet" href="../css/theme.css"/>
@@ -71,6 +78,28 @@
   import { renderOwner }                 from '../js/screens/owner.js';
 
   window.doLogout = logout;
+
+  // ── PWA Install prompt ──────────────────
+  let _deferredInstall = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _deferredInstall = e;
+    // Show install button in profile if visible
+    const btn = document.getElementById('install-btn-wrap');
+    if (btn) btn.style.display = 'block';
+  });
+  window.addEventListener('appinstalled', () => {
+    _deferredInstall = null;
+    const btn = document.getElementById('install-btn-wrap');
+    if (btn) btn.style.display = 'none';
+  });
+  // Called by the install button in profile.js
+  window._triggerInstall = async () => {
+    if (!_deferredInstall) return;
+    _deferredInstall.prompt();
+    const { outcome } = await _deferredInstall.userChoice;
+    if (outcome === 'accepted') _deferredInstall = null;
+  };
 
   function renderOwnerRewards(container) {
     container.innerHTML = `
@@ -288,5 +317,12 @@
   }
 </script>
 
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+      });
+    }
+  </script>
 </body>
 </html>

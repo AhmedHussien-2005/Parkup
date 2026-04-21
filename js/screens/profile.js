@@ -108,6 +108,15 @@ export function renderProfile(container) {
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Sign Out
         </button>
+        <!-- Install App button — shown only when PWA install is available -->
+        <div id="install-btn-wrap" style="display:none;margin-top:10px">
+          <button id="install-btn" onclick="window._triggerInstall()"
+            style="width:100%;padding:14px;border-radius:14px;border:1.5px solid #29ABE2;background:white;color:#29ABE2;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px"
+            onmouseover="this.style.background='#F0F8FF'" onmouseout="this.style.background='white'">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Install ParkUp App
+          </button>
+        </div>
         <div style="text-align:center;font-size:11px;color:#BBDEFB;margin-top:16px;padding-bottom:8px">ParkUp v1.0</div>
 
       </div>

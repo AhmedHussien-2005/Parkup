@@ -1082,6 +1082,8 @@ function _showReportModal(user) {
           ? `Spot reported! You're waiting 🕐 +${basePts} pts earned.`
           : `Spot reported! ✓ You'll earn +10 pts when someone navigates to it.`
         );
+        // Show 10-min countdown timer for WAIT spots
+        if (waiting) _startWaitTimer();
         // Drop marker on map immediately
         if (_map && _spotLayer && _currentLat) {
           const waitColor = '#FF6B00';
@@ -1146,3 +1148,95 @@ function _showReportModal(user) {
     btn.classList.add('sel');
   };
 }
+
+// ── WAIT Countdown Timer ─────────────────────────────
+let _waitTimerInterval = null;
+
+function _startWaitTimer() {
+  // Remove any existing timer
+  _clearWaitTimer();
+
+  const WAIT_SECONDS = 10 * 60; // 10 minutes
+  let remaining = WAIT_SECONDS;
+  const endTime = Date.now() + WAIT_SECONDS * 1000;
+
+  // Create timer bar element
+  const bar = document.createElement('div');
+  bar.id = 'wait-timer-bar';
+  // Place timer just below the top search bar
+  bar.style.cssText = `
+    position:absolute;
+    top:56px;
+    left:50%;
+    transform:translateX(-50%);
+    width:auto;
+    background:#0A2540;
+    border-radius:24px;
+    padding:6px 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    z-index:998;
+    box-shadow:0 4px 16px rgba(0,0,0,.35);
+    font-family:'Inter',sans-serif;
+  `;
+  bar.innerHTML = `
+    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#FF6B00" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+    </svg>
+    <div style="background:rgba(255,255,255,.12);border-radius:4px;height:4px;width:80px;overflow:hidden">
+      <div id="wait-timer-fill" style="height:100%;background:#FF6B00;width:100%;border-radius:4px;transition:width 1s linear"></div>
+    </div>
+    <div id="wait-timer-text" style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:#FF6B00;min-width:38px;text-align:center">10:00</div>
+    <button onclick="window._cancelWaitTimer()" style="background:none;border:none;color:rgba(255,255,255,.45);font-size:16px;cursor:pointer;padding:0 2px;line-height:1">×</button>
+  `;
+
+  // Insert inside the map container (position:absolute needs a positioned parent)
+  const existingBar = document.getElementById('wait-timer-bar');
+  if (existingBar) existingBar.remove();
+  // Find the map wrapper div (has position:relative)
+  const mapWrapper = document.querySelector('#leaflet-map')?.closest('[style*="position:relative"]')
+                  || document.querySelector('.leaflet-container')?.parentElement
+                  || document.getElementById('main');
+  if (mapWrapper) {
+    mapWrapper.style.position = 'relative';
+    mapWrapper.appendChild(bar);
+  } else {
+    document.body.appendChild(bar);
+  }
+
+  function _tick() {
+    remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    const pct  = (remaining / WAIT_SECONDS) * 100;
+
+    const textEl = document.getElementById('wait-timer-text');
+    const fillEl = document.getElementById('wait-timer-fill');
+    if (textEl) textEl.textContent = `${mins}:${String(secs).padStart(2,'0')}`;
+    if (fillEl) fillEl.style.width = pct + '%';
+
+    // Color shifts red as time runs out
+    const color = remaining > 120 ? '#FF6B00' : remaining > 30 ? '#FB8C00' : '#E53935';
+    if (textEl) textEl.style.color = color;
+    if (fillEl) fillEl.style.background = color;
+
+    if (remaining <= 0) {
+      _clearWaitTimer();
+      toast('Your waiting spot has expired ⏱');
+    }
+  }
+
+  _tick();
+  _waitTimerInterval = setInterval(_tick, 1000);
+}
+
+function _clearWaitTimer() {
+  if (_waitTimerInterval) { clearInterval(_waitTimerInterval); _waitTimerInterval = null; }
+  const bar = document.getElementById('wait-timer-bar');
+  if (bar) bar.remove();
+}
+
+window._cancelWaitTimer = () => {
+  _clearWaitTimer();
+};
