@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>ParkUp</title>
+  <link rel="stylesheet" href="../css/theme.css"/>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ═══ SIDEBAR ══════════════════════════ -->
+  <aside class="sidebar">
+    <!-- Logo -->
+    <div style="display:flex;align-items:center;gap:8px;padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,.08)">
+      <svg width="26" height="26" viewBox="0 0 200 200">
+        <rect x="30" y="20" width="22" height="110" fill="#29ABE2"/>
+        <rect x="30" y="20" width="80" height="22" fill="#29ABE2"/>
+        <rect x="30" y="68" width="80" height="22" fill="#29ABE2"/>
+        <rect x="88" y="20" width="22" height="70" rx="11" fill="#29ABE2"/>
+        <rect x="75" y="100" width="80" height="72" rx="8" fill="#29ABE2"/>
+        <rect x="93" y="116" width="44" height="42" rx="4" fill="#0A2540"/>
+      </svg>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:white">PARK<span style="color:#29ABE2">UP</span></span>
+    </div>
+
+    <!-- Location (dynamic) -->
+    <div style="margin:12px;padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;display:flex;align-items:center;gap:8px">
+      <div style="width:8px;height:8px;border-radius:50%;background:#29ABE2;flex-shrink:0;animation:pulse-dot 2s infinite"></div>
+      <span style="font-size:12px;font-weight:600;color:white" id="location-label">Locating...</span>
+    </div>
+    <style>
+      @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+    </style>
+
+    <!-- Nav -->
+    <nav id="nav" style="flex:1;padding:8px;display:flex;flex-direction:column;gap:2px"></nav>
+
+    <!-- User info -->
+    <div style="border-top:1px solid rgba(255,255,255,.08);padding:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div id="u-avatar" style="width:36px;height:36px;border-radius:50%;background:#1A73CC;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:white;flex-shrink:0;background-size:cover;background-position:center"></div>
+        <div style="flex:1;min-width:0">
+          <div id="u-name"  style="font-size:13px;font-weight:700;color:white;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+          <div id="u-role"  style="font-size:11px;color:#5B8DB8"></div>
+        </div>
+      </div>
+      <button onclick="doLogout()" class="btn btn-danger btn-sm" style="width:100%">↩ Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN ══════════════════════════════ -->
+  <main class="main" id="main" style="">
+    <div class="spinner" style="height:100%"></div>
+  </main>
+
+  <!-- ═══ BOTTOM NAV (mobile only) ══════════ -->
+  <nav id="bottom-nav" style="display:none"></nav>
+
+</div>
+
+<script type="module">
+  import { onAuth, currentUser, logout, ensureUserDoc } from '../js/services/auth.js';
+  import { onUser, checkAndResetWeeklyPoints } from '../js/services/db.js';
+  import { renderMap }                   from '../js/screens/map.js';
+  import { renderList }                  from '../js/screens/list.js';
+  import { renderPoints }                from '../js/screens/points.js';
+  import { renderProfile }               from '../js/screens/profile.js';
+  import { renderAdmin }                 from '../js/screens/admin.js';
+  import { renderOwner }                 from '../js/screens/owner.js';
+
+  window.doLogout = logout;
+
+  function renderOwnerRewards(container) {
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;height:100%;background:#F0F6FF;font-family:'Inter',sans-serif">
+        <div style="background:#0A2540;padding:0 20px;height:56px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+          <span style="font-size:20px">🎁</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:white;letter-spacing:2px">Rewards</span>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:20px">
+          <div style="max-width:500px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+
+            <!-- Free Parking Card -->
+            <div style="background:white;border-radius:20px;border:1px solid #E3F2FD;box-shadow:0 2px 12px rgba(10,37,64,.06);overflow:hidden">
+              <div style="background:linear-gradient(135deg,#0A2540 0%,#1255A0 100%);padding:24px;position:relative;overflow:hidden">
+                <div style="position:absolute;top:-10px;right:-10px;width:80px;height:80px;border-radius:50%;background:rgba(41,171,226,.1)"></div>
+                <div style="display:flex;align-items:center;gap:14px;position:relative">
+                  <div style="width:52px;height:52px;border-radius:16px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <span style="font-size:28px">🅿️</span>
+                  </div>
+                  <div>
+                    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:white;letter-spacing:1px">Free Parking</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:2px">Redeem your points for free parking</div>
+                  </div>
+                  <div style="margin-left:auto;background:rgba(255,165,0,.2);color:#FFB74D;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;white-space:nowrap">Coming Soon</div>
+                </div>
+              </div>
+              <div style="padding:24px;display:flex;flex-direction:column;gap:10px">
+                ${[
+                  ['⏱️','30 Min Free','Half hour at any partner garage','100','#E3F2FD'],
+                  ['🕐','1 Hour Free','Full hour at any partner garage','200','#E8F5E9'],
+                  ['🌟','Full Day Free','Entire day at any partner garage','500','#FFF3E0'],
+                ].map(([icon,title,desc,pts,bg]) => `
+                  <div style="display:flex;align-items:center;gap:14px;padding:14px;background:#F8FBFF;border-radius:12px;border:1.5px solid #E3F2FD;opacity:.65">
+                    <div style="width:40px;height:40px;border-radius:12px;background:${bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px">${icon}</div>
+                    <div style="flex:1">
+                      <div style="font-size:14px;font-weight:700;color:#0A2540">${title}</div>
+                      <div style="font-size:12px;color:#5B8DB8;margin-top:2px">${desc}</div>
+                    </div>
+                    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#29ABE2">${pts} pts</div>
+                  </div>
+                `).join('')}
+                <div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-top:4px">
+                  <span style="font-size:22px;flex-shrink:0">🔔</span>
+                  <div>
+                    <div style="font-size:13px;font-weight:700;color:#F57F17">Feature Not Available Yet</div>
+                    <div style="font-size:12px;color:#F9A825;margin-top:3px;line-height:1.5">Coming soon! Keep earning points so you're ready when it launches.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- How to earn -->
+            <div style="background:#0A2540;border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:12px">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#29ABE2" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <div style="font-size:11px;color:rgba(255,255,255,.55)">Report a spot <span style="color:#29ABE2;font-weight:700">+10 pts</span> · Add photo <span style="color:#29ABE2;font-weight:700">+15 pts</span></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Get user location ──────────────
+  function updateLocationLabel() {
+    const label = document.getElementById('location-label');
+    if (!label) return;
+    if (!navigator.geolocation) { label.textContent = 'Near You'; return; }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          const res  = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+          );
+          const data = await res.json();
+          const city = data.address?.city || data.address?.town ||
+                       data.address?.village || data.address?.county || 'Near You';
+          const country = data.address?.country_code?.toUpperCase() || '';
+          label.textContent = country ? `${city}, ${country}` : city;
+        } catch {
+          label.textContent = 'Near You';
+        }
+      },
+      () => { label.textContent = 'Near You'; },
+      { timeout: 5000 }
+    );
+  }
+  updateLocationLabel();
+
+  let activeId  = null;
+  let unsubUser = null;
+
+  // ── screens map ───────────────────────
+  const SCREENS = {
+    map:       { fn: renderMap,     label:'Map',           icon:'map'     },
+    list:      { fn: renderList,    label:'List',          icon:'list'    },
+    points:    { fn: renderPoints,  label:'Points',        icon:'star'    },
+    profile:   { fn: renderProfile, label:'Profile',       icon:'person'  },
+    dashboard: { fn: (el)=>renderAdmin(el,'dashboard'), label:'Dashboard', icon:'grid' },
+    garages:   { fn: (el)=>renderAdmin(el,'garages'),   label:'Garages',   icon:'park' },
+    users:     { fn: (el)=>renderAdmin(el,'users'),     label:'Users',     icon:'people'},
+    reports:   { fn: (el)=>renderAdmin(el,'reports'),   label:'Reports',   icon:'doc'  },
+    'my-garage':     { fn: (el)=>renderOwner(el,'dashboard'), label:'My Garage', icon:'park'},
+    'nearby':        { fn: (el)=>renderOwner(el,'nearby'),    label:'Nearby',    icon:'car' },
+    'owner-rewards': { fn: renderOwnerRewards,                label:'Rewards',   icon:'star'},
+  };
+
+  const NAV_BY_ROLE = {
+    user:  ['map','list','points','profile'],
+    owner: ['my-garage','owner-rewards','profile'],
+    admin: ['dashboard','garages','users','reports'],
+  };
+
+  // ── auth guard ────────────────────────
+  onAuth(async user => {
+    if (!user) { window.location.href = 'login.html'; return; }
+
+    // ✅ ضمان وجود الـ user doc في Firestore فور تسجيل الدخول
+    await ensureUserDoc(user);
+
+    // Check if weekly reset is needed
+    checkAndResetWeeklyPoints().catch(e => console.warn('Weekly reset:', e.message));
+
+    // Set avatar
+    const av = document.getElementById('u-avatar');
+    if (user.photoURL) { av.style.backgroundImage = `url(${user.photoURL})`; av.textContent = ''; }
+    else av.textContent = (user.displayName || 'U')[0].toUpperCase();
+    document.getElementById('u-name').textContent = user.displayName || 'User';
+
+    // Start with default 'user' role immediately — don't wait for Firestore
+    document.getElementById('u-role').textContent = 'Driver';
+    buildNav('user');
+    if (!activeId) navigate('map');
+
+    // Then listen for real role from Firestore and update if different
+    if (unsubUser) unsubUser();
+    unsubUser = onUser(user.uid, userData => {
+      const role = userData.role || 'user';
+      document.getElementById('u-role').textContent = { admin:'Administrator', owner:'Garage Owner', user:'Driver' }[role] ?? 'Driver';
+      buildNav(role);
+      // If role changed and screen doesn't match, redirect to default
+      const validScreens = NAV_BY_ROLE[role] ?? [];
+      if (activeId && !validScreens.includes(activeId)) {
+        navigate(validScreens[0] ?? 'map');
+      }
+    });
+
+    // Timeout fallback — if Firestore doesn't respond in 5s, keep user role
+    setTimeout(() => {
+      if (!activeId) { buildNav('user'); navigate('map'); }
+    }, 5000);
+  });
+
+  // ── nav builder ───────────────────────
+  function buildNav(role) {
+    const ids  = NAV_BY_ROLE[role] ?? NAV_BY_ROLE.user;
+
+    // Sidebar nav
+    const nav  = document.getElementById('nav');
+    nav.innerHTML = ids.map(id => {
+      const s = SCREENS[id];
+      return `<div class="nav-item ${id === activeId ? 'active' : ''}" id="ni-${id}" onclick="window._nav('${id}')">
+        ${svgIcon(s.icon)}
+        <span>${s.label}</span>
+      </div>`;
+    }).join('');
+
+    // Bottom nav (mobile)
+    const bnav = document.getElementById('bottom-nav');
+    if (bnav) {
+      bnav.innerHTML = ids.map(id => {
+        const s = SCREENS[id];
+        return `<button class="bnav-item ${id === activeId ? 'bnav-active' : ''}" id="bni-${id}" onclick="window._nav('${id}')">
+          ${svgIcon(s.icon)}
+          <span>${s.label}</span>
+        </button>`;
+      }).join('');
+    }
+  }
+
+  // ── navigate ──────────────────────────
+  window._nav = (id) => navigate(id);
+
+  function navigate(id) {
+    if (!SCREENS[id]) return;
+    activeId = id;
+
+    // Update nav highlight (sidebar + bottom)
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`ni-${id}`)?.classList.add('active');
+    document.querySelectorAll('.bnav-item').forEach(el => el.classList.remove('bnav-active'));
+    document.getElementById(`bni-${id}`)?.classList.add('bnav-active');
+
+    // Render screen
+    const main = document.getElementById('main');
+    main.innerHTML = '';
+    SCREENS[id].fn(main);
+  }
+
+  // ── icons ─────────────────────────────
+  function svgIcon(name) {
+    const icons = {
+      map:    `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>`,
+      list:   `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>`,
+      star:   `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`,
+      person: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+      park:   `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>`,
+      grid:   `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
+      people: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+      doc:    `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+      car:    `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`,
+    };
+    return icons[name] ?? '';
+  }
+</script>
+
+</body>
+</html>
